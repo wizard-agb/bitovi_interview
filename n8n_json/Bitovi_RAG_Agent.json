@@ -1,0 +1,992 @@
+{
+  "name": "Bitovi RAG Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d70fb6fd-a7a0-4201-be85-44f07b0a4ca3",
+              "name": "page",
+              "value": "0",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        35
+      ],
+      "id": "5de1d538-128d-4ac1-ba1d-236328edc84c",
+      "name": "initialize page number"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f7df6aac-b1bb-4793-8d55-6c681ad034ce",
+              "name": "page",
+              "value": "={{ parseInt($json.page) + 1 }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        35
+      ],
+      "id": "c2e0553d-72b5-4c37-9696-3a92a1c65793",
+      "name": "increment page number"
+    },
+    {
+      "parameters": {
+        "url": "=https://www.bitovi.com/blog/page/{{ $json.page }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        -40
+      ],
+      "id": "ca210867-a1f2-423b-a01a-a0a283208510",
+      "name": "get blog posts with page #",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.first().json.data;\nconst regex = /<a\\s+[^>]*href=\"([^\"]+)\"[^>]*class=\"w-full\"/g;\n\n\nconst uniqueUrls = new Set();\n\nlet match;\nwhile ((match = regex.exec(html)) !== null) {\n  const href = match[1];\n  if (href && href.startsWith('https://bitovi.com/blog/')) {\n    uniqueUrls.add(href);\n    console.log(href)\n  }\n}\n\nconst results = Array.from(uniqueUrls).map(url => ({ json: { url } }));\nconsole.log(results)\n\nreturn results"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -40
+      ],
+      "id": "277071d4-48ce-4c35-b9a1-1e7beecbe889",
+      "name": "extract blog links"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        -40
+      ],
+      "id": "b0db8c0c-09b4-4b2f-b259-de4a39b1ec02",
+      "name": "get blog page",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "body",
+              "cssSelector": "article",
+              "skipSelectors": "img, a"
+            },
+            {
+              "key": "title",
+              "cssSelector": "#hs_cos_wrapper_name"
+            },
+            {
+              "key": "subtitle",
+              "cssSelector": ".subtitle-1"
+            },
+            {
+              "key": "author",
+              "cssSelector": "p.font-bold"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        1540,
+        -40
+      ],
+      "id": "68cc8582-9fcd-4a12-ab57-d75d50155174",
+      "name": "parse data from blog page"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "blog_posts",
+          "mode": "list",
+          "cachedResultName": "blog_posts"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "is_processed": false,
+            "body": "={{ $json.body }}",
+            "title": "={{ $json.title }}",
+            "subtitle": "={{ $json.subtitle }}",
+            "author": "={{ $json.author }}",
+            "url": "={{ $('extract blog links').item.json.url }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subtitle",
+              "displayName": "subtitle",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "author",
+              "displayName": "author",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "body",
+              "displayName": "body",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_processed",
+              "displayName": "is_processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1760,
+        -40
+      ],
+      "id": "c52bcc41-ff5d-48d9-84f5-d5b2048593f8",
+      "name": "upload blog data",
+      "credentials": {
+        "postgres": {
+          "id": "uVeo91DrZgOAjQh2",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0da0bcbc-c3b1-4deb-ba24-965f9277b6bb",
+              "leftValue": "={{ $json.data.startsWith('<html') }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        -40
+      ],
+      "id": "2b605ec8-da81-48a3-9c93-464dd5a4c6ba",
+      "name": "if html response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1f1ab31b-95a2-45b7-bce5-2053111a7099",
+              "leftValue": "={{ $json.keys() }}",
+              "rightValue": "error",
+              "operator": {
+                "type": "array",
+                "operation": "contains",
+                "rightType": "any"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1980,
+        -40
+      ],
+      "id": "12051dc1-c47f-4653-bef1-1bb5be710466",
+      "name": "check for duplicate entries error"
+    },
+    {
+      "parameters": {
+        "jsCode": "const page = $('increment page number').first().json.page;\nconsole.log(\"PAGE:\", page);\n\nreturn [{\n  json: {\n    page: page\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        35
+      ],
+      "id": "d79d0d44-0980-42cd-a29b-c70b7b2e5b23",
+      "name": "set page number"
+    },
+    {
+      "parameters": {
+        "modelName": "models/embedding-001"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        880,
+        715
+      ],
+      "id": "41520424-cddf-4680-ace8-b9e825453ea3",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "a2LMzWM1l4D6B1r4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        915
+      ],
+      "id": "27616f32-be60-40d0-8b1c-3d0842b43e06",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        717.5
+      ],
+      "id": "12015af9-4d27-4a13-9322-144e3e150c31",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "blog_posts",
+          "mode": "list",
+          "cachedResultName": "blog_posts"
+        },
+        "returnAll": true,
+        "where": {
+          "values": [
+            {
+              "column": "is_processed",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        220,
+        670
+      ],
+      "id": "2b6b483f-3c43-4f88-84e2-253b8b78838d",
+      "name": "get all non processed articles",
+      "credentials": {
+        "postgres": {
+          "id": "uVeo91DrZgOAjQh2",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function clean(text) {\n  if (!text) return '';\n  return text\n    .replace(/<[^>]*>/g, '')     // remove HTML tags\n    .replace(/\\s+/g, ' ')        // collapse multiple spaces/newlines\n    .replace(/&nbsp;/g, ' ')     // convert HTML entities (basic)\n    .trim();\n}\n\nconst title = clean($json.title);\nconst subtitle = clean($json.subtitle);\nconst body = clean($json.body);\nconst author = clean($json.author);\nconst url = $json.url\n\nconst textForEmbedding = `${title}\\n\\n${subtitle}\\n\\n${body}\\n\\nWritten by: ${author}`.trim();\n\nreturn [{\n    json: {\n      pageContent: textForEmbedding,\n      metadata: {\n          title: title || '',\n          subtitle: subtitle || '',\n          url: url || '',\n          author: author || ''\n        }\n    }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        495
+      ],
+      "id": "aa8fafe5-3fdb-4a07-9d9a-795b21c132bc",
+      "name": "format blog data"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        440,
+        670
+      ],
+      "id": "bbb2b6ea-c1ef-4331-b4d3-884a8a3f103e",
+      "name": "loop through blog posts"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "blogs",
+          "mode": "list",
+          "cachedResultName": "blogs"
+        },
+        "embeddingBatchSize": 1000,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.1,
+      "position": [
+        896,
+        495
+      ],
+      "id": "6a241416-50d9-41e8-9958-dde45f2b34c3",
+      "name": "embed and upload to Qdrant",
+      "credentials": {
+        "qdrantApi": {
+          "id": "lm8DEmiZoXFjkNcT",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "blog_posts",
+          "mode": "list",
+          "cachedResultName": "blog_posts"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "is_processed": true,
+            "url": "={{ $('format blog data').item.json.metadata.url }}"
+          },
+          "matchingColumns": [
+            "url"
+          ],
+          "schema": [
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subtitle",
+              "displayName": "subtitle",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "author",
+              "displayName": "author",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "body",
+              "displayName": "body",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "is_processed",
+              "displayName": "is_processed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1376,
+        670
+      ],
+      "id": "0906a249-80a5-4cb3-9ffb-6f291d8e6fa9",
+      "name": "update processing status",
+      "credentials": {
+        "postgres": {
+          "id": "uVeo91DrZgOAjQh2",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        1155
+      ],
+      "id": "29bc431f-e702-46f7-82d3-77578d7e3ff4",
+      "name": "When chat message received",
+      "webhookId": "a97400e4-3d3d-4fc4-9588-fbb3b00e7bba"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        252,
+        1155
+      ],
+      "id": "6eed2b0f-fbd5-450c-815a-9ecd717d50b3",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/embedding-001"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        548,
+        1575
+      ],
+      "id": "c7fd522a-7500-4795-9efd-8b37d54cb6e9",
+      "name": "Embeddings Google Gemini1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "a2LMzWM1l4D6B1r4",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        340,
+        1375
+      ],
+      "id": "2b1dd9ac-66bb-4dc0-95c9-e2aea3fec5ed",
+      "name": "Simple 5 Context Memory"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "blog_post_retrieval",
+        "toolDescription": "rag agent with blog data",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "blogs",
+          "mode": "list",
+          "cachedResultName": "blogs"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.1,
+      "position": [
+        460,
+        1377.5
+      ],
+      "id": "17b87f35-faef-4cc3-8301-c748c2e89296",
+      "name": "Qdrant Blog RAG Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "lm8DEmiZoXFjkNcT",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-3.5-turbo-0125",
+          "mode": "list",
+          "cachedResultName": "gpt-3.5-turbo-0125"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        1375
+      ],
+      "id": "1b1c99e2-97e5-4bc8-84f4-f4dd7f12a16e",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "6o7vLW3GAOeyFms9",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 2,
+              "triggerAtMinute": {}
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        670
+      ],
+      "id": "cb2561e5-361e-4046-b6de-ac40fb9a40ad",
+      "name": "vector db schedule trigger"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        35
+      ],
+      "id": "e2e65de8-b370-4699-92a1-3d2c75159370",
+      "name": "scraper schedule trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "initialize page number": {
+      "main": [
+        [
+          {
+            "node": "increment page number",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "increment page number": {
+      "main": [
+        [
+          {
+            "node": "get blog posts with page #",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get blog posts with page #": {
+      "main": [
+        [
+          {
+            "node": "if html response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extract blog links": {
+      "main": [
+        [
+          {
+            "node": "get blog page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get blog page": {
+      "main": [
+        [
+          {
+            "node": "parse data from blog page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse data from blog page": {
+      "main": [
+        [
+          {
+            "node": "upload blog data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upload blog data": {
+      "main": [
+        [
+          {
+            "node": "check for duplicate entries error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if html response": {
+      "main": [
+        [
+          {
+            "node": "extract blog links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check for duplicate entries error": {
+      "main": [
+        [],
+        [
+          {
+            "node": "set page number",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set page number": {
+      "main": [
+        [
+          {
+            "node": "increment page number",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "embed and upload to Qdrant",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "embed and upload to Qdrant",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get all non processed articles": {
+      "main": [
+        [
+          {
+            "node": "loop through blog posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "format blog data": {
+      "main": [
+        [
+          {
+            "node": "embed and upload to Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "loop through blog posts": {
+      "main": [
+        [],
+        [
+          {
+            "node": "format blog data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "embed and upload to Qdrant": {
+      "main": [
+        [
+          {
+            "node": "update processing status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update processing status": {
+      "main": [
+        [
+          {
+            "node": "loop through blog posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Blog RAG Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple 5 Context Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Blog RAG Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        []
+      ]
+    },
+    "vector db schedule trigger": {
+      "main": [
+        [
+          {
+            "node": "get all non processed articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "scraper schedule trigger": {
+      "main": [
+        [
+          {
+            "node": "initialize page number",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "657cbab5-7a60-4bc9-beff-100221a4fa31",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fcb76b64976444f39e97cf7dc9565f80939fea09196a22b55c6912229441f894"
+  },
+  "id": "kBpvHEJ13BHyQLd0",
+  "tags": []
+}
